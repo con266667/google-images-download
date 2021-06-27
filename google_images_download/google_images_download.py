@@ -888,47 +888,12 @@ class googleimagesdownload:
                 if arguments['metadata']:
                     if not arguments["silent_mode"]:
                         print("\nImage Metadata: " + str(object))
+                return object['image_link']
 
-                # download the images
-                download_status, download_message, return_image_name, absolute_path = self.download_image(
-                    object['image_link'], object['image_format'], main_directory, dir_name, count,
-                    arguments['print_urls'], arguments['socket_timeout'], arguments['prefix'], arguments['print_size'],
-                    arguments['no_numbering'], arguments['no_download'], arguments['save_source'],
-                    object['image_source'], arguments["silent_mode"], arguments["thumbnail_only"], arguments['format'],
-                    arguments['ignore_urls'])
-                if not arguments["silent_mode"]:
-                    print(download_message)
-                if download_status == "success":
-
-                    # download image_thumbnails
-                    if arguments['thumbnail'] or arguments["thumbnail_only"]:
-                        download_status, download_message_thumbnail = self.download_image_thumbnail(
-                            object['image_thumbnail_url'], main_directory, dir_name, return_image_name,
-                            arguments['print_urls'], arguments['socket_timeout'], arguments['print_size'],
-                            arguments['no_download'], arguments['save_source'], object['image_source'],
-                            arguments['ignore_urls'])
-                        if not arguments["silent_mode"]:
-                            print(download_message_thumbnail)
-
-                    count += 1
-                    object['image_filename'] = return_image_name
-                    items.append(object)  # Append all the links in the list named 'Links'
-                    abs_path.append(absolute_path)
-                else:
-                    errorCount += 1
-
-                # delay param
-                if arguments['delay']:
-                    time.sleep(int(arguments['delay']))
-            i += 1
-        if count < limit:
-            print("\n\nUnfortunately all " + str(
-                limit) + " could not be downloaded because some images were not downloadable. " + str(
-                count - 1) + " is all we got for this search filter!")
-        return items, errorCount, abs_path
 
     # Bulk Download
     def download(self, arguments):
+        links = []
         paths_agg = {}
         # for input coming from other python files
         if __name__ != "__main__":
@@ -945,32 +910,17 @@ class googleimagesdownload:
                     records.append(arguments)
                 total_errors = 0
                 for rec in records:
-                    paths, errors = self.download_executor(rec)
-                    for i in paths:
-                        paths_agg[i] = paths[i]
-                    if not arguments["silent_mode"]:
-                        if arguments['print_paths']:
-                            print(paths.encode('raw_unicode_escape').decode('utf-8'))
-                    total_errors = total_errors + errors
-                return paths_agg, total_errors
+                    link = self.download_executor(rec)
+                    links += link
+                return links
             # if the calling file contains params directly
             else:
-                paths, errors = self.download_executor(arguments)
-                for i in paths:
-                    paths_agg[i] = paths[i]
-                if not arguments["silent_mode"]:
-                    if arguments['print_paths']:
-                        print(paths.encode('raw_unicode_escape').decode('utf-8'))
-                return paths_agg, errors
+                link = self.download_executor(arguments)
+                return [link]
         # for input coming from CLI
         else:
-            paths, errors = self.download_executor(arguments)
-            for i in paths:
-                paths_agg[i] = paths[i]
-            if not arguments["silent_mode"]:
-                if arguments['print_paths']:
-                    print(paths.encode('raw_unicode_escape').decode('utf-8'))
-        return paths_agg, errors
+            link = self.download_executor(arguments)
+        return link
 
     def download_executor(self, arguments):
         paths = {}
@@ -1089,40 +1039,10 @@ class googleimagesdownload:
                             print("Getting URLs without downloading images...")
                         else:
                             print("Starting Download...")
-                    items, errorCount, abs_path = self._get_all_items(images, main_directory, dir_name, limit,
+                    link = self._get_all_items(images, main_directory, dir_name, limit,
                                                                       arguments)  # get all image items and download images
-                    paths[pky + search_keyword[i] + sky] = abs_path
-
-                    # dumps into a json file
-                    if arguments['extract_metadata']:
-                        try:
-                            if not os.path.exists("logs"):
-                                os.makedirs("logs")
-                        except OSError as e:
-                            print(e)
-                        json_file = open("logs/" + search_keyword[i] + ".json", "w")
-                        json.dump(items, json_file, indent=4, sort_keys=True)
-                        json_file.close()
-
-                    # Related images
-                    if arguments['related_images']:
-                        print("\nGetting list of related keywords...this may take a few moments")
-                        for key, value in tabs.items():
-                            final_search_term = (search_term + " - " + key)
-                            print("\nNow Downloading - " + final_search_term)
-                            if limit < 101:
-                                images, _ = self.download_page(value)  # download page
-                            else:
-                                images, _ = self.download_extended_page(value, arguments['chromedriver'])
-                            self.create_directories(main_directory, final_search_term, arguments['thumbnail'],
-                                                    arguments['thumbnail_only'])
-                            self._get_all_items(images, main_directory, search_term + " - " + key, limit, arguments)
-
-                    i += 1
-                    total_errors = total_errors + errorCount
-                    if not arguments["silent_mode"]:
-                        print("\nErrors: " + str(errorCount) + "\n")
-        return paths, total_errors
+                    
+        return link
 
 
 # ------------- Main Program -------------#
